@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>会場参加型カウントダウン集計</title>
+  <link rel="stylesheet" href="./styles.css?v=20260708-obs-parts" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">LIVE EVENT COUNTER</p>
+        <h1>会場参加型カウントダウン集計</h1>
+      </div>
+      <nav class="mode-tabs" aria-label="画面切替">
+        <a href="#control" data-view-link="control">進行</a>
+        <a href="#screen" data-view-link="screen">投影</a>
+        <a href="#answer" data-view-link="answer">回答</a>
+      </nav>
+    </header>
+
+    <main>
+      <section id="controlView" class="view control-layout" aria-label="進行画面">
+        <section class="panel setup-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">SETUP</p>
+              <h2>ゲーム設定</h2>
+            </div>
+            <button class="ghost-button" id="resetGameBtn" type="button">初期化</button>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              <span>チームA名</span>
+              <input id="teamAName" autocomplete="off" />
+            </label>
+            <label>
+              <span>チームB名</span>
+              <input id="teamBName" autocomplete="off" />
+            </label>
+            <label>
+              <span>開始数字</span>
+              <input id="startNumber" type="number" min="1" step="1" />
+            </label>
+            <label>
+              <span>勝利条件</span>
+              <select id="winMode">
+                <option value="zero">先に0以下にしたら勝ち</option>
+                <option value="near">指定ターン後に0へ近い方が勝ち</option>
+              </select>
+            </label>
+            <label>
+              <span>ターン表示</span>
+              <input id="turnLabel" autocomplete="off" />
+            </label>
+            <label>
+              <span>現在のお題</span>
+              <input id="questionText" autocomplete="off" />
+            </label>
+            <label>
+              <span>回答制限時間(秒)</span>
+              <input id="answerDuration" type="number" min="5" step="5" />
+            </label>
+          </div>
+          <div class="button-row">
+            <button class="primary-button" id="saveSettingsBtn" type="button">設定を反映</button>
+            <button class="secondary-button" id="closeAnswersBtn" type="button">回答を終了</button>
+            <button class="secondary-button" id="nextTurnBtn" type="button">ターンを進める</button>
+            <button class="secondary-button" id="swapTeamBtn" type="button">回答チーム切替</button>
+          </div>
+        </section>
+
+        <section class="panel current-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">NOW</p>
+              <h2>現在の進行</h2>
+            </div>
+            <span class="live-pill">ON AIR</span>
+          </div>
+          <div class="score-mini">
+            <article>
+              <span id="miniTeamA">チームA</span>
+              <strong id="miniScoreA">1000</strong>
+            </article>
+            <article>
+              <span id="miniTeamB">チームB</span>
+              <strong id="miniScoreB">1000</strong>
+            </article>
+          </div>
+          <div class="turn-card">
+            <span id="currentTurn">1ターン目</span>
+            <strong id="currentTeam">チームA</strong>
+            <p id="currentQuestion">今日関東から来た人</p>
+            <em id="currentTimer">残り 60秒</em>
+          </div>
+        </section>
+
+        <section class="panel submissions-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">ANSWERS</p>
+              <h2>回答集計</h2>
+            </div>
+            <button class="ghost-button" id="clearHistoryBtn" type="button">集計を消す</button>
+          </div>
+          <div class="answer-summary">
+            <article>
+              <span>○</span>
+              <strong id="circleCount">0</strong>
+              <em>件</em>
+            </article>
+            <article>
+              <span>×</span>
+              <strong id="crossCount">0</strong>
+              <em>件</em>
+            </article>
+          </div>
+          <p class="summary-note" id="summaryNote">現在のお題の回答件数です。数字は手動で減点してください。</p>
+        </section>
+
+        <section class="panel manual-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">MANUAL</p>
+              <h2>手動で減点</h2>
+            </div>
+          </div>
+          <div class="manual-form">
+            <select id="manualTeam">
+              <option value="A">チームA</option>
+              <option value="B">チームB</option>
+            </select>
+            <input id="manualAnswer" placeholder="回答内容" autocomplete="off" />
+            <input id="manualPoints" type="number" min="0" step="1" placeholder="減らす数字" />
+            <button class="primary-button" id="manualApplyBtn" type="button">反映</button>
+            <button class="secondary-button" id="undoManualBtn" type="button">直前の反映を取り消し</button>
+          </div>
+        </section>
+
+        <section class="panel link-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">QR</p>
+              <h2>回答ページ</h2>
+            </div>
+          </div>
+          <div class="qr-wrap">
+            <img id="answerQr" alt="回答ページQRコード" />
+            <div>
+              <p>来場者にはこのURLをQR化して案内します。</p>
+              <a id="answerUrl" target="_blank" rel="noopener"></a>
+              <p class="note">OBSで背景・立ち絵の上に重ねる場合はこちらをブラウザソースにします。</p>
+              <a id="overlayUrl" target="_blank" rel="noopener"></a>
+              <p class="note">配置を分ける場合は、お題・チームA・チームBを別々のブラウザソースにします。</p>
+              <a id="overlayTopicUrl" target="_blank" rel="noopener"></a>
+              <a id="overlayTeamAUrl" target="_blank" rel="noopener"></a>
+              <a id="overlayTeamBUrl" target="_blank" rel="noopener"></a>
+              <p class="note">このプロトタイプは同じブラウザ内で集計します。複数スマホから本番収集するには Firebase / Supabase などの共有データベース接続が必要です。</p>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="screenView" class="view stage-screen" aria-label="投影画面">
+        <div class="stage-layer stage-bg" aria-hidden="true"></div>
+        <div class="stage-layer stage-cast-layer" aria-hidden="true">
+          <div class="cast-team cast-team-a">
+            <div class="cast-slot cast-slot-1" style="--cast-image: none"><span>A 01</span></div>
+            <div class="cast-slot cast-slot-2" style="--cast-image: none"><span>A 02</span></div>
+            <div class="cast-slot cast-slot-3" style="--cast-image: none"><span>A 03</span></div>
+          </div>
+          <div class="cast-team cast-team-b">
+            <div class="cast-slot cast-slot-1" style="--cast-image: none"><span>B 01</span></div>
+            <div class="cast-slot cast-slot-2" style="--cast-image: none"><span>B 02</span></div>
+            <div class="cast-slot cast-slot-3" style="--cast-image: none"><span>B 03</span></div>
+          </div>
+        </div>
+
+        <div class="stage-layer stage-ui-layer">
+          <div class="stage-brand">
+            <span>VLIVER MATSURI 2026</span>
+            <strong>会場参加型カウントダウン</strong>
+          </div>
+
+          <div class="stage-topic">
+            <strong id="stageTurn">1ターン目</strong>
+            <h2 id="stageMission">5ターンで0に近づけろ!!</h2>
+            <p>お題: <span id="stageQuestion">今日関東から来た人</span></p>
+            <em id="stageTimer">残り 60秒</em>
+          </div>
+
+          <div class="team-stage-grid">
+            <article class="team-stage team-a">
+              <p id="stageNameA">チームA</p>
+              <strong id="stageScoreA">1000</strong>
+              <span>残り</span>
+            </article>
+            <div class="versus">VS</div>
+            <article class="team-stage team-b">
+              <p id="stageNameB">チームB</p>
+              <strong id="stageScoreB">1000</strong>
+              <span>残り</span>
+            </article>
+          </div>
+
+          <div class="latest-answer">
+            <span>最新票数</span>
+            <strong id="latestAnswer">0票</strong>
+            <p id="latestPoints">手動減点後に表示されます</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="answerView" class="view answer-view" aria-label="回答画面">
+        <section class="answer-card">
+          <div id="answerForm">
+            <p class="eyebrow">AUDIENCE ANSWER</p>
+            <h2 id="answerQuestion">今日関東から来た人</h2>
+            <p class="answer-timer" id="answerTimer">残り 60秒</p>
+
+            <div class="answer-choice" role="group" aria-label="回答選択">
+              <button type="button" data-answer-choice="○">○</button>
+              <button type="button" data-answer-choice="×">×</button>
+            </div>
+
+            <button class="submit-button" id="sendAnswerBtn" type="button">回答を送信</button>
+          </div>
+
+          <div id="thanksView" class="thanks-view" hidden>
+            <p class="eyebrow">THANK YOU</p>
+            <h2>回答ありがとうございます</h2>
+            <p>次のお題までお待ちください。</p>
+          </div>
+
+          <div id="closedView" class="thanks-view" hidden>
+            <p class="eyebrow">TIME UP</p>
+            <h2>回答受付は終了しました</h2>
+            <p>次のお題までお待ちください。</p>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="./config.js"></script>
+  <script src="./app.js?v=20260708-obs-parts"></script>
+</body>
+</html>
