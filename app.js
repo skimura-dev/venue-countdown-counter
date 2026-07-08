@@ -1,8 +1,11 @@
 const STORAGE_KEY = "venue-countdown-game-v1";
 const ANSWERED_KEY = "venue-countdown-answered-question-v1";
 const PARTICIPANT_KEY = "venue-countdown-participant-id-v1";
+const ACCESS_STORAGE_KEY = "venue-countdown-access-v1";
+const ACCESS_TOKEN = "321-live-8kq4";
 const API_URL = (window.EVENT_API_URL || "").trim();
 const SEARCH_PARAMS = new URLSearchParams(location.search);
+const ACCESS_GRANTED = hasAccess();
 const PARTICIPANT_MODE = SEARCH_PARAMS.has("participant");
 const OVERLAY_VALUE = SEARCH_PARAMS.get("overlay");
 const OVERLAY_MODE = SEARCH_PARAMS.has("overlay");
@@ -34,6 +37,26 @@ let pollId = null;
 let syncing = false;
 
 const $ = (id) => document.getElementById(id);
+
+function hasAccess() {
+  if (SEARCH_PARAMS.get("access") === ACCESS_TOKEN) {
+    localStorage.setItem(ACCESS_STORAGE_KEY, ACCESS_TOKEN);
+    return true;
+  }
+  return localStorage.getItem(ACCESS_STORAGE_KEY) === ACCESS_TOKEN;
+}
+
+function renderAccessGate() {
+  $("accessForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if ($("accessCode").value.trim() !== ACCESS_TOKEN) {
+      $("accessError").hidden = false;
+      return;
+    }
+    localStorage.setItem(ACCESS_STORAGE_KEY, ACCESS_TOKEN);
+    location.reload();
+  });
+}
 
 function isRemoteMode() {
   return API_URL.length > 0;
@@ -211,11 +234,11 @@ function renderAnswer() {
 }
 
 function renderQr() {
-  const answerUrl = `${location.origin}${location.pathname}?participant=1#answer`;
-  const overlayUrl = `${location.origin}${location.pathname}?overlay=1#screen`;
-  const overlayTopicUrl = `${location.origin}${location.pathname}?overlay=topic#screen`;
-  const overlayTeamAUrl = `${location.origin}${location.pathname}?overlay=teamA#screen`;
-  const overlayTeamBUrl = `${location.origin}${location.pathname}?overlay=teamB#screen`;
+  const answerUrl = publicUrl({ participant: "1" }, "answer");
+  const overlayUrl = publicUrl({ overlay: "1" }, "screen");
+  const overlayTopicUrl = publicUrl({ overlay: "topic" }, "screen");
+  const overlayTeamAUrl = publicUrl({ overlay: "teamA" }, "screen");
+  const overlayTeamBUrl = publicUrl({ overlay: "teamB" }, "screen");
   $("answerUrl").href = answerUrl;
   $("answerUrl").textContent = answerUrl;
   $("overlayUrl").href = overlayUrl;
@@ -227,6 +250,14 @@ function renderQr() {
   $("overlayTeamBUrl").href = overlayTeamBUrl;
   $("overlayTeamBUrl").textContent = `チームBだけ: ${overlayTeamBUrl}`;
   $("answerQr").src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(answerUrl)}`;
+}
+
+function publicUrl(params, hash) {
+  const url = new URL(location.pathname, location.origin);
+  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+  url.searchParams.set("access", ACCESS_TOKEN);
+  url.hash = hash;
+  return url.toString();
 }
 
 function teamName(team) {
@@ -484,64 +515,71 @@ function startRemotePolling() {
   pollId = setInterval(syncFromRemote, 1000);
 }
 
-window.addEventListener("hashchange", showView);
-window.addEventListener("storage", (event) => {
-  if (event.key !== STORAGE_KEY) return;
-  state = loadLocalState();
-  render();
-});
-window.addEventListener("game-state-updated", () => {
-  if (isRemoteMode()) return;
-  state = loadLocalState();
-  render();
-});
-
-$("saveSettingsBtn").addEventListener("click", applySettings);
-$("closeAnswersBtn").addEventListener("click", closeAnswers);
-$("nextTurnBtn").addEventListener("click", nextTurn);
-$("swapTeamBtn").addEventListener("click", async () => {
-  if (isRemoteMode()) {
-    await runRemoteAction("swapTeam");
-    return;
-  }
-  state.currentTeam = state.currentTeam === "A" ? "B" : "A";
-  saveLocalState();
-  render();
-});
-$("resetGameBtn").addEventListener("click", resetGame);
-$("manualApplyBtn").addEventListener("click", applyManual);
-$("undoManualBtn").addEventListener("click", undoLastManual);
-$("clearHistoryBtn").addEventListener("click", clearCurrentAnswers);
-document.querySelectorAll("[data-answer-choice]").forEach((button) => {
-  button.addEventListener("click", () => {
-    answerChoice = button.dataset.answerChoice;
-    renderAnswer();
-  });
-});
-$("sendAnswerBtn").addEventListener("click", submitAudienceAnswer);
-
-if (PARTICIPANT_MODE) {
-  document.body.classList.add("participant-mode");
-  if (location.hash !== "#answer") location.hash = "answer";
-  showView();
-} else if (OVERLAY_MODE) {
-  if (location.hash !== "#screen") location.hash = "screen";
-  showView();
-} else if (!location.hash) {
-  location.hash = "control";
+if (!ACCESS_GRANTED) {
+  renderAccessGate();
 } else {
-  showView();
-}
-if (OVERLAY_MODE) {
-  document.body.classList.add("overlay-mode");
-  document.body.dataset.overlayPart = OVERLAY_PART;
-}
-if (!state.answerDeadline) {
-  state.answerDeadline = deadlineFromNow();
-  saveLocalState();
-}
-startTimer();
-startRemotePolling();
-if (isRemoteMode()) {
-  syncFromRemote();
+  document.body.classList.remove("access-locked");
+  $("accessGate").hidden = true;
+
+  window.addEventListener("hashchange", showView);
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY) return;
+    state = loadLocalState();
+    render();
+  });
+  window.addEventListener("game-state-updated", () => {
+    if (isRemoteMode()) return;
+    state = loadLocalState();
+    render();
+  });
+
+  $("saveSettingsBtn").addEventListener("click", applySettings);
+  $("closeAnswersBtn").addEventListener("click", closeAnswers);
+  $("nextTurnBtn").addEventListener("click", nextTurn);
+  $("swapTeamBtn").addEventListener("click", async () => {
+    if (isRemoteMode()) {
+      await runRemoteAction("swapTeam");
+      return;
+    }
+    state.currentTeam = state.currentTeam === "A" ? "B" : "A";
+    saveLocalState();
+    render();
+  });
+  $("resetGameBtn").addEventListener("click", resetGame);
+  $("manualApplyBtn").addEventListener("click", applyManual);
+  $("undoManualBtn").addEventListener("click", undoLastManual);
+  $("clearHistoryBtn").addEventListener("click", clearCurrentAnswers);
+  document.querySelectorAll("[data-answer-choice]").forEach((button) => {
+    button.addEventListener("click", () => {
+      answerChoice = button.dataset.answerChoice;
+      renderAnswer();
+    });
+  });
+  $("sendAnswerBtn").addEventListener("click", submitAudienceAnswer);
+
+  if (PARTICIPANT_MODE) {
+    document.body.classList.add("participant-mode");
+    if (location.hash !== "#answer") location.hash = "answer";
+    showView();
+  } else if (OVERLAY_MODE) {
+    if (location.hash !== "#screen") location.hash = "screen";
+    showView();
+  } else if (!location.hash) {
+    location.hash = "control";
+  } else {
+    showView();
+  }
+  if (OVERLAY_MODE) {
+    document.body.classList.add("overlay-mode");
+    document.body.dataset.overlayPart = OVERLAY_PART;
+  }
+  if (!state.answerDeadline) {
+    state.answerDeadline = deadlineFromNow();
+    saveLocalState();
+  }
+  startTimer();
+  startRemotePolling();
+  if (isRemoteMode()) {
+    syncFromRemote();
+  }
 }

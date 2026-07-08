@@ -3,10 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
   <title>会場参加型カウントダウン集計</title>
-  <link rel="stylesheet" href="./styles.css?v=20260708-obs-parts" />
+  <link rel="stylesheet" href="./styles.css?v=20260708-access" />
 </head>
-<body>
+<body class="access-locked">
+  <section class="access-gate" id="accessGate" aria-label="アクセス確認">
+    <form class="access-card" id="accessForm">
+      <p class="eyebrow">EVENT ACCESS</p>
+      <h1>会場参加型カウントダウン集計</h1>
+      <label>
+        <span>アクセスキー</span>
+        <input id="accessCode" autocomplete="off" inputmode="text" />
+      </label>
+      <button class="primary-button" type="submit">開く</button>
+      <p class="note" id="accessError" hidden>アクセスキーが違います。</p>
+    </form>
+  </section>
+
   <div class="app-shell">
     <header class="topbar">
       <div>
@@ -246,6 +260,6 @@
   </div>
 
   <script src="./config.js"></script>
-  <script src="./app.js?v=20260708-obs-parts"></script>
+  <script src="./app.js?v=20260708-access"></script>
 </body>
 </html>

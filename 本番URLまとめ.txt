@@ -1,33 +1,36 @@
 会場参加型カウントダウン集計 本番URLまとめ
 
 公開ページ
-https://skimura-dev.github.io/venue-countdown-counter/
+https://skimura-dev.github.io/venue-countdown-counter/?access=321-live-8kq4
 
 GitHubリポジトリ
 https://github.com/skimura-dev/venue-countdown-counter
 
+アクセスキー
+321-live-8kq4
+
 進行画面
-https://skimura-dev.github.io/venue-countdown-counter/index.html#control
+https://skimura-dev.github.io/venue-countdown-counter/index.html?access=321-live-8kq4#control
 
 回答画面
-https://skimura-dev.github.io/venue-countdown-counter/index.html?participant=1#answer
+https://skimura-dev.github.io/venue-countdown-counter/index.html?participant=1&access=321-live-8kq4#answer
 
 投影画面
-https://skimura-dev.github.io/venue-countdown-counter/index.html#screen
+https://skimura-dev.github.io/venue-countdown-counter/index.html?access=321-live-8kq4#screen
 
 OBS用URL
 
 全部入り
-https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=1#screen
+https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=1&access=321-live-8kq4#screen
 
 お題だけ
-https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=topic#screen
+https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=topic&access=321-live-8kq4#screen
 
 チームAだけ
-https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=teamA#screen
+https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=teamA&access=321-live-8kq4#screen
 
 チームBだけ
-https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=teamB#screen
+https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=teamB&access=321-live-8kq4#screen
 
 OBSでの想定
 背景や立ち絵はOBS側の別ソースとして配置する。
@@ -39,9 +42,9 @@ config.js に設定済みの Google Apps Script API を使う。
 ローカルサーバーではなく、上記のGitHub Pages URLからアクセスしても同じAPIを参照する。
 
 ローカル確認用URL
-http://127.0.0.1:8081/index.html#control
-http://127.0.0.1:8081/index.html?participant=1#answer
-http://127.0.0.1:8081/index.html?overlay=1#screen
-http://127.0.0.1:8081/index.html?overlay=topic#screen
-http://127.0.0.1:8081/index.html?overlay=teamA#screen
-http://127.0.0.1:8081/index.html?overlay=teamB#screen
+http://127.0.0.1:8081/index.html?access=321-live-8kq4#control
+http://127.0.0.1:8081/index.html?participant=1&access=321-live-8kq4#answer
+http://127.0.0.1:8081/index.html?overlay=1&access=321-live-8kq4#screen
+http://127.0.0.1:8081/index.html?overlay=topic&access=321-live-8kq4#screen
+http://127.0.0.1:8081/index.html?overlay=teamA&access=321-live-8kq4#screen
+http://127.0.0.1:8081/index.html?overlay=teamB&access=321-live-8kq4#screen
