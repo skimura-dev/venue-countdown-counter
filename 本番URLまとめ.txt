@@ -1,0 +1,47 @@
+会場参加型カウントダウン集計 本番URLまとめ
+
+公開ページ
+https://skimura-dev.github.io/venue-countdown-counter/
+
+GitHubリポジトリ
+https://github.com/skimura-dev/venue-countdown-counter
+
+進行画面
+https://skimura-dev.github.io/venue-countdown-counter/index.html#control
+
+回答画面
+https://skimura-dev.github.io/venue-countdown-counter/index.html?participant=1#answer
+
+投影画面
+https://skimura-dev.github.io/venue-countdown-counter/index.html#screen
+
+OBS用URL
+
+全部入り
+https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=1#screen
+
+お題だけ
+https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=topic#screen
+
+チームAだけ
+https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=teamA#screen
+
+チームBだけ
+https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=teamB#screen
+
+OBSでの想定
+背景や立ち絵はOBS側の別ソースとして配置する。
+その上に、必要なOBS用URLをブラウザソースとして重ねる。
+スクリーン比率が16:9ではない場合は、お題だけ、チームAだけ、チームBだけを別々に置く。
+
+回答・進行状態の共有
+config.js に設定済みの Google Apps Script API を使う。
+ローカルサーバーではなく、上記のGitHub Pages URLからアクセスしても同じAPIを参照する。
+
+ローカル確認用URL
+http://127.0.0.1:8081/index.html#control
+http://127.0.0.1:8081/index.html?participant=1#answer
+http://127.0.0.1:8081/index.html?overlay=1#screen
+http://127.0.0.1:8081/index.html?overlay=topic#screen
+http://127.0.0.1:8081/index.html?overlay=teamA#screen
+http://127.0.0.1:8081/index.html?overlay=teamB#screen
