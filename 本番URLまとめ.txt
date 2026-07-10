@@ -70,6 +70,8 @@ OBSでの想定
 回答・進行状態の共有
 config.js に設定済みの Google Apps Script API を使う。
 ローカルサーバーではなく、上記のGitHub Pages URLからアクセスしても同じAPIを参照する。
+参加者の回答画面は、ページ表示時に1回だけ状態を取得し、その後は回答送信時だけ通信する。
+進行画面とOBS画面は、表示更新のために定期的に状態を取得する。
 
 ローカル確認用URL
 http://127.0.0.1:8081/index.html?access=321-live-8kq4#control

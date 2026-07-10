@@ -34,6 +34,7 @@ let answerChoice = "○";
 let timerId = null;
 let pollId = null;
 let syncing = false;
+let submittingAnswer = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -224,7 +225,10 @@ function renderAnswer() {
   $("thanksView").hidden = !answered;
   $("closedView").hidden = answered || !closed;
   $("answerTimer").textContent = timerText();
+  $("sendAnswerBtn").disabled = submittingAnswer || answered || closed;
+  $("sendAnswerBtn").textContent = submittingAnswer ? "送信中..." : "回答を送信";
   document.querySelectorAll("[data-answer-choice]").forEach((button) => {
+    button.disabled = submittingAnswer || answered || closed;
     button.classList.toggle("active", button.dataset.answerChoice === answerChoice);
   });
 }
@@ -261,7 +265,7 @@ function teamName(team) {
 }
 
 async function submitAudienceAnswer() {
-  if (hasAnsweredCurrentQuestion()) return;
+  if (submittingAnswer || hasAnsweredCurrentQuestion()) return;
   if (isAnswerClosed()) {
     render();
     return;
@@ -278,15 +282,27 @@ async function submitAudienceAnswer() {
     createdAt: new Date().toISOString()
   };
 
-  localStorage.setItem(ANSWERED_KEY, String(state.questionId));
-  if (isRemoteMode()) {
-    await runRemoteAction("answer", item);
-    return;
-  }
+  submittingAnswer = true;
+  renderAnswer();
 
-  state.history.unshift(item);
-  saveLocalState();
-  render();
+  try {
+    if (isRemoteMode()) {
+      await runRemoteAction("answer", item);
+      localStorage.setItem(ANSWERED_KEY, String(item.questionId));
+      return;
+    }
+
+    state.history.unshift(item);
+    localStorage.setItem(ANSWERED_KEY, String(state.questionId));
+    saveLocalState();
+    render();
+  } catch (error) {
+    console.warn(error);
+    alert("回答の送信に失敗しました。通信状況を確認して、もう一度送信してください。");
+  } finally {
+    submittingAnswer = false;
+    renderAnswer();
+  }
 }
 
 function applyPoints(item) {
@@ -506,7 +522,7 @@ function startTimer() {
 }
 
 function startRemotePolling() {
-  if (!isRemoteMode()) return;
+  if (!isRemoteMode() || PARTICIPANT_MODE) return;
   if (pollId) clearInterval(pollId);
   pollId = setInterval(syncFromRemote, 1000);
 }
