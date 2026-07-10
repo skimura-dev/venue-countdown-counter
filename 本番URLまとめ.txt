@@ -1,5 +1,8 @@
 会場参加型カウントダウン集計 本番URLまとめ
 
+当日共有用アクセスキー
+321-live-8kq4
+
 公開ページ
 https://skimura-dev.github.io/venue-countdown-counter/?access=321-live-8kq4
 
