@@ -1,7 +1,6 @@
 const STORAGE_KEY = "venue-countdown-game-v1";
 const ANSWERED_KEY = "venue-countdown-answered-question-v1";
 const PARTICIPANT_KEY = "venue-countdown-participant-id-v1";
-const ACCESS_STORAGE_KEY = "venue-countdown-access-v1";
 const ACCESS_TOKEN = "321-live-8kq4";
 const API_URL = (window.EVENT_API_URL || "").trim();
 const SEARCH_PARAMS = new URLSearchParams(location.search);
@@ -39,11 +38,7 @@ let syncing = false;
 const $ = (id) => document.getElementById(id);
 
 function hasAccess() {
-  if (SEARCH_PARAMS.get("access") === ACCESS_TOKEN) {
-    localStorage.setItem(ACCESS_STORAGE_KEY, ACCESS_TOKEN);
-    return true;
-  }
-  return localStorage.getItem(ACCESS_STORAGE_KEY) === ACCESS_TOKEN;
+  return SEARCH_PARAMS.get("access") === ACCESS_TOKEN;
 }
 
 function renderAccessGate() {
@@ -53,8 +48,9 @@ function renderAccessGate() {
       $("accessError").hidden = false;
       return;
     }
-    localStorage.setItem(ACCESS_STORAGE_KEY, ACCESS_TOKEN);
-    location.reload();
+    const url = new URL(location.href);
+    url.searchParams.set("access", ACCESS_TOKEN);
+    location.href = url.toString();
   });
 }
 

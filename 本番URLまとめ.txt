@@ -36,7 +36,7 @@ https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=teamA&a
 https://skimura-dev.github.io/venue-countdown-counter/index.html?overlay=teamB&access=321-live-8kq4#screen
 
 アクセスキーなしURL
-キーなしで開くとアクセスキー入力画面になります。
+キーなしで開くと、過去に同じ端末で開いていてもアクセスキー入力画面になります。
 
 公開ページ
 https://skimura-dev.github.io/venue-countdown-counter/
