@@ -83,6 +83,12 @@ API key: config.js に publishable key を設定済み
 総処理時間: 3.888秒
 レイテンシ: p50 765ms / p95 1752ms / 最大 3834ms
 
+同時回答上限調査
+2026-08-25の実測では500人同時までは成功。
+550人以上では失敗や大きな遅延が混ざった。
+本番200人規模は問題なし。
+安全側の上限目安は300〜400人同時、攻めた上限目安は500人同時。
+
 ローカル確認用URL
 http://127.0.0.1:8081/index.html?access=321-live-8kq4#control
 http://127.0.0.1:8081/index.html?participant=1&access=321-live-8kq4#answer

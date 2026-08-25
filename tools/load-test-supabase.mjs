@@ -58,7 +58,12 @@ async function readState() {
 }
 
 async function readCounts(questionId) {
-  const response = await supabaseFetch(`event_answers?question_id=eq.${questionId}&status=eq.active&select=answer`);
+  let response;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    response = await supabaseFetch(`event_answers?question_id=eq.${questionId}&status=eq.active&select=answer`);
+    if (response.ok) break;
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+  }
   if (!response.ok) throw new Error(response.error);
   return response.data.reduce((acc, row) => {
     if (row.answer === "○") acc.circle += 1;
@@ -100,7 +105,7 @@ async function main() {
     currentTeam: "A",
     turn: 1,
     turnLabel: "負荷テスト",
-    questionId: Number(current.questionId || 1) + 1,
+    questionId: Math.floor(Date.now() / 1000),
     question: `Supabase負荷テスト ${RUN_ID}`,
     answerDuration: 300,
     answerDeadline: new Date(Date.now() + 300000).toISOString(),
