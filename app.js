@@ -3,6 +3,8 @@ const ANSWERED_KEY = "venue-countdown-answered-question-v1";
 const PARTICIPANT_KEY = "venue-countdown-participant-id-v1";
 const ACCESS_TOKEN = "321-live-8kq4";
 const API_URL = (window.EVENT_API_URL || "").trim();
+const SUPABASE_URL = (window.SUPABASE_URL || "").replace(/\/+$/, "");
+const SUPABASE_ANON_KEY = (window.SUPABASE_ANON_KEY || "").trim();
 const SEARCH_PARAMS = new URLSearchParams(location.search);
 const ACCESS_GRANTED = hasAccess();
 const PARTICIPANT_MODE = SEARCH_PARAMS.has("participant");
@@ -56,7 +58,11 @@ function renderAccessGate() {
 }
 
 function isRemoteMode() {
-  return API_URL.length > 0;
+  return isSupabaseMode() || API_URL.length > 0;
+}
+
+function isSupabaseMode() {
+  return SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
 }
 
 function loadLocalState() {
@@ -84,6 +90,9 @@ function participantId() {
 }
 
 function apiRequest(action, payload = {}) {
+  if (isSupabaseMode()) {
+    return supabaseRequest(action, payload);
+  }
   return new Promise((resolve, reject) => {
     const callback = `eventApi_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script = document.createElement("script");
@@ -111,6 +120,229 @@ function apiRequest(action, payload = {}) {
     script.src = url.toString();
     document.body.appendChild(script);
   });
+}
+
+async function supabaseFetch(path, options = {}) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new Error(data?.message || data?.hint || `Supabase request failed: ${response.status}`);
+  }
+  return data;
+}
+
+function publicState(value) {
+  return {
+    ...structuredClone(defaultState),
+    ...value,
+    history: Array.isArray(value?.history) ? value.history : [],
+  };
+}
+
+function stateForStorage(value) {
+  const clean = { ...value };
+  delete clean.history;
+  delete clean.answerCounts;
+  return clean;
+}
+
+async function readSupabaseState() {
+  const rows = await supabaseFetch("event_state?id=eq.1&select=state");
+  const base = publicState(rows?.[0]?.state || defaultState);
+  const counts = await readSupabaseCounts(base.questionId);
+  return { ...base, answerCounts: counts };
+}
+
+async function readSupabaseCounts(questionId) {
+  const rows = await supabaseFetch(`event_answers?question_id=eq.${encodeURIComponent(questionId)}&status=eq.active&select=answer`);
+  return rows.reduce((acc, row) => {
+    if (row.answer === "×") acc.cross += 1;
+    if (row.answer === "○") acc.circle += 1;
+    acc.total = acc.circle + acc.cross;
+    return acc;
+  }, { circle: 0, cross: 0, total: 0 });
+}
+
+async function writeSupabaseState(nextState) {
+  const body = {
+    id: 1,
+    state: stateForStorage(nextState),
+    updated_at: new Date().toISOString(),
+  };
+  await supabaseFetch("event_state?on_conflict=id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function appendSupabaseManual(item, nextState) {
+  await supabaseFetch("event_manual", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      id: item.id,
+      applied_at: item.appliedAt || item.createdAt,
+      question_id: item.questionId,
+      question: item.question,
+      team: item.team,
+      answer: item.answer,
+      points: item.points,
+      score_a: nextState.scoreA,
+      score_b: nextState.scoreB,
+      note: item.undo ? `undo:${item.undoTargetId || ""}` : "",
+    }),
+  });
+}
+
+async function supabaseRequest(action, payload = {}) {
+  let remoteState = await readSupabaseState();
+
+  if (action === "state") {
+    return { ok: true, state: remoteState };
+  }
+
+  if (action === "settings") {
+    const previousQuestion = remoteState.question;
+    const previousStart = remoteState.startNumber;
+    remoteState.teamAName = String(payload.teamAName || "チームA").trim() || "チームA";
+    remoteState.teamBName = String(payload.teamBName || "チームB").trim() || "チームB";
+    remoteState.startNumber = Math.max(1, Math.floor(Number(payload.startNumber || 1000)));
+    remoteState.winMode = String(payload.winMode || "zero").trim() || "zero";
+    remoteState.turnLabel = String(payload.turnLabel || `${remoteState.turn}ターン目`).trim() || `${remoteState.turn}ターン目`;
+    remoteState.question = String(payload.question || "今日関東から来た人").trim() || "今日関東から来た人";
+    remoteState.answerDuration = Math.max(5, Math.floor(Number(payload.answerDuration || 60)));
+    if (remoteState.question !== previousQuestion) {
+      remoteState.questionId += 1;
+    }
+    remoteState.answerDeadline = deadlineFromNowFor(remoteState.answerDuration);
+    if (previousStart !== remoteState.startNumber) {
+      remoteState.scoreA = remoteState.startNumber;
+      remoteState.scoreB = remoteState.startNumber;
+    }
+    remoteState.history = [];
+    await writeSupabaseState(remoteState);
+  }
+
+  if (action === "answer") {
+    if (isClosedState(remoteState)) {
+      return { ok: true, state: remoteState };
+    }
+    await supabaseFetch("event_answers?on_conflict=question_id,client_id", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+      body: JSON.stringify({
+        id: payload.id || crypto.randomUUID(),
+        client_id: String(payload.clientId || "").trim(),
+        team: remoteState.currentTeam,
+        answer: payload.answer === "×" ? "×" : "○",
+        points: payload.answer === "×" ? 0 : 1,
+        question_id: remoteState.questionId,
+        question: remoteState.question,
+        status: "active",
+        created_at: new Date().toISOString(),
+      }),
+    });
+    return { ok: true, state: remoteState };
+  }
+
+  if (action === "manual") {
+    const item = {
+      id: payload.id || crypto.randomUUID(),
+      team: payload.team === "B" ? "B" : "A",
+      answer: String(payload.answer || "手動反映").trim() || "手動反映",
+      points: Math.max(0, Math.floor(Number(payload.points || 0))),
+      questionId: remoteState.questionId,
+      question: remoteState.question,
+      createdAt: new Date().toISOString(),
+      appliedAt: new Date().toISOString(),
+    };
+    applyPointsToState(remoteState, item);
+    remoteState.latest = item;
+    remoteState.history = [];
+    await appendSupabaseManual(item, remoteState);
+    await writeSupabaseState(remoteState);
+  }
+
+  if (action === "undoManual") {
+    const rows = await supabaseFetch("event_manual?team=in.(A,B)&points=gt.0&order=applied_at.desc&limit=1&select=id,team,points,question_id,question,note");
+    const target = rows.find((row) => !(row.note || "").startsWith("undo:"));
+    if (target) {
+      const item = {
+        id: crypto.randomUUID(),
+        team: target.team,
+        answer: "取り消し",
+        points: Math.max(0, Math.floor(Number(target.points || 0))),
+        questionId: target.question_id,
+        question: target.question,
+        createdAt: new Date().toISOString(),
+        appliedAt: new Date().toISOString(),
+        undo: true,
+        undoTargetId: target.id,
+      };
+      if (item.team === "A") remoteState.scoreA += item.points;
+      if (item.team === "B") remoteState.scoreB += item.points;
+      remoteState.latest = item;
+      remoteState.history = [];
+      await appendSupabaseManual(item, remoteState);
+      await writeSupabaseState(remoteState);
+    }
+  }
+
+  if (action === "nextTurn") {
+    remoteState.turn += 1;
+    remoteState.turnLabel = `${remoteState.turn}ターン目`;
+    remoteState.currentTeam = remoteState.currentTeam === "A" ? "B" : "A";
+    remoteState.questionId += 1;
+    remoteState.answerDeadline = deadlineFromNowFor(remoteState.answerDuration);
+    remoteState.history = [];
+    await writeSupabaseState(remoteState);
+  }
+
+  if (action === "closeAnswers") {
+    remoteState.answerDeadline = new Date(Date.now() - 1000).toISOString();
+    remoteState.history = [];
+    await writeSupabaseState(remoteState);
+  }
+
+  if (action === "swapTeam") {
+    remoteState.currentTeam = remoteState.currentTeam === "A" ? "B" : "A";
+    remoteState.history = [];
+    await writeSupabaseState(remoteState);
+  }
+
+  if (action === "clearCurrentAnswers") {
+    await supabaseFetch(`event_answers?question_id=eq.${encodeURIComponent(remoteState.questionId)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status: "cleared" }),
+    });
+  }
+
+  if (action === "reset") {
+    remoteState.scoreA = remoteState.startNumber;
+    remoteState.scoreB = remoteState.startNumber;
+    remoteState.currentTeam = "A";
+    remoteState.turn = 1;
+    remoteState.turnLabel = "1ターン目";
+    remoteState.questionId += 1;
+    remoteState.answerDeadline = deadlineFromNowFor(remoteState.answerDuration);
+    remoteState.history = [];
+    remoteState.latest = null;
+    await writeSupabaseState(remoteState);
+  }
+
+  const next = await readSupabaseState();
+  return { ok: true, state: next };
 }
 
 async function syncFromRemote() {
@@ -188,6 +420,12 @@ function renderControl() {
 }
 
 function renderAnswerSummary() {
+  if (state.answerCounts) {
+    $("circleCount").textContent = state.answerCounts.circle;
+    $("crossCount").textContent = state.answerCounts.cross;
+    $("summaryNote").textContent = `${state.question} / 合計 ${state.answerCounts.total}件`;
+    return;
+  }
   const currentAnswers = state.history.filter((item) => item.questionId === state.questionId && ["○", "×"].includes(item.answer));
   const circleCount = currentAnswers.filter((item) => item.answer === "○").length;
   const crossCount = currentAnswers.filter((item) => item.answer === "×").length;
@@ -306,10 +544,14 @@ async function submitAudienceAnswer() {
 }
 
 function applyPoints(item) {
+  applyPointsToState(state, item);
+}
+
+function applyPointsToState(targetState, item) {
   if (item.team === "A") {
-    state.scoreA -= item.points;
+    targetState.scoreA -= item.points;
   } else {
-    state.scoreB -= item.points;
+    targetState.scoreB -= item.points;
   }
 }
 
@@ -494,7 +736,11 @@ function hasAnsweredCurrentQuestion() {
 }
 
 function deadlineFromNow() {
-  return new Date(Date.now() + state.answerDuration * 1000).toISOString();
+  return deadlineFromNowFor(state.answerDuration);
+}
+
+function deadlineFromNowFor(seconds) {
+  return new Date(Date.now() + Number(seconds || 60) * 1000).toISOString();
 }
 
 function remainingSeconds() {
@@ -504,6 +750,11 @@ function remainingSeconds() {
 
 function isAnswerClosed() {
   return remainingSeconds() <= 0;
+}
+
+function isClosedState(targetState) {
+  if (!targetState.answerDeadline) return false;
+  return new Date(targetState.answerDeadline).getTime() <= Date.now();
 }
 
 function timerText() {

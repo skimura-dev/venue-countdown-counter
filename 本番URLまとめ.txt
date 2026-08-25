@@ -68,10 +68,20 @@ OBSでの想定
 スクリーン比率が16:9ではない場合は、お題だけ、チームAだけ、チームBだけを別々に置く。
 
 回答・進行状態の共有
-config.js に設定済みの Google Apps Script API を使う。
-ローカルサーバーではなく、上記のGitHub Pages URLからアクセスしても同じAPIを参照する。
+config.js に設定済みの Supabase 無料枠プロジェクトを使う。
+ローカルサーバーではなく、上記のGitHub Pages URLからアクセスしても同じSupabase DBを参照する。
 参加者の回答画面は、ページ表示時に1回だけ状態を取得し、その後は回答送信時だけ通信する。
 進行画面とOBS画面は、表示更新のために定期的に状態を取得する。
+
+Supabase接続先
+Project URL: https://xxftmypgnskthhfaxtcx.supabase.co
+API key: config.js に publishable key を設定済み
+
+負荷テスト結果
+2026-08-25にSupabase無料枠で200人同時回答を実行。
+200件送信、200件成功、200件記録。
+総処理時間: 3.888秒
+レイテンシ: p50 765ms / p95 1752ms / 最大 3834ms
 
 ローカル確認用URL
 http://127.0.0.1:8081/index.html?access=321-live-8kq4#control

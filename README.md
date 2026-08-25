@@ -26,7 +26,7 @@
 - 回答はスコアに直接反映せず、進行画面に `○ / ×` の件数として表示します。
 - データ保存はブラウザの `localStorage` です。
 - 投影画面は `背景レイヤー`、`出演者配置レイヤー`、`スコアUIレイヤー` に分けています。
-- 本番API利用時、参加者画面はページ表示時に1回だけ状態を取得し、その後は回答送信時だけ通信します。
+- Supabase利用時、参加者画面はページ表示時に1回だけ状態を取得し、その後は回答送信時だけ通信します。
 
 ## 投影画面の出演者画像
 
@@ -66,28 +66,44 @@ http://127.0.0.1:8081/index.html?overlay=teamA#screen
 http://127.0.0.1:8081/index.html?overlay=teamB#screen
 ```
 
-## 本番運用で必要な追加
+## 本番運用: Supabase無料枠
 
-来場者のスマホから同時に回答を集める場合は、Google Apps Script のウェブアプリURLを使います。
+200人規模の同時回答を想定する場合は、Google Apps Script + Googleスプレッドシート直書きではなく、Supabaseを使います。
 
-このプロジェクトでは次のスプレッドシートを集計先にしています。
+### セットアップ
 
-https://docs.google.com/spreadsheets/d/1m-45wmJI9fMxkY5TuTL5k04DH5VqN0wVB8RHivxEirE/edit?usp=sharing
+1. Supabaseで無料プロジェクトを作ります。
+2. SupabaseのSQL Editorを開きます。
+3. [supabase-schema.sql](./supabase-schema.sql) の中身を貼り付けて実行します。
+4. Project Settings → API から `Project URL` と `anon public` key を取得します。
+5. [config.js](./config.js) に次の2つを設定します。
 
-1. Google Apps Scriptで新規プロジェクトを作ります。
-2. [google-apps-script/Code.gs](./google-apps-script/Code.gs) の中身を貼り付けます。
-3. 「デプロイ」→「新しいデプロイ」→ 種類は「ウェブアプリ」にします。
-4. 実行ユーザーは「自分」、アクセスできるユーザーは「全員」にします。
-5. 発行されたウェブアプリURLを [config.js](./config.js) の `window.EVENT_API_URL` に入れます。
-6. `index.html` をインターネット上に置きます。GitHub Pages、Netlify、Vercel などで大丈夫です。
+```js
+window.SUPABASE_URL = "https://xxxxx.supabase.co";
+window.SUPABASE_ANON_KEY = "xxxxx";
+```
 
-Googleフォームでも回答収集だけなら可能ですが、投影・進行画面へリアルタイムに寄せる用途では Apps Script API の方が向いています。
+6. `window.EVENT_API_URL` は旧方式の予備です。Supabase設定がある場合はSupabaseが優先されます。
+7. GitHub Pagesに反映します。
 
-Apps Scriptが初回実行されると、スプレッドシートに次のシートが作られます。
+### Supabase側に作られるテーブル
 
-- `State`: 現在のゲーム状態
-- `Answers`: 来場者の `○ / ×` 回答ログ
-- `ManualLog`: 手動減点や初期化のログ
+- `event_state`: 現在のゲーム状態
+- `event_answers`: 来場者の `○ / ×` 回答ログ
+- `event_manual`: 手動減点や初期化のログ
+
+### 設計
+
+- 回答送信は `event_answers` への1行insertだけにしています。
+- 同じ端末から同じお題へ重複回答した場合は、`question_id + client_id` のユニーク制約で重複を防ぎます。
+- 進行画面と投影/OBS画面だけが定期的に状態と回答数を取得します。
+- 参加者画面のpollingは止めています。
+- スコアへの反映は今まで通り手動減点です。
+
+### 旧Google Apps Script版
+
+旧方式を使いたい場合は [google-apps-script/Code.gs](./google-apps-script/Code.gs) をApps Scriptに貼り付け、発行URLを [config.js](./config.js) の `window.EVENT_API_URL` に入れます。
+ただし、2026-08-25の負荷テストでは200人同時回答に耐えない結果でした。
 
 決めたいこと:
 

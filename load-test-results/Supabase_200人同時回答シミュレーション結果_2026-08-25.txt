@@ -1,0 +1,36 @@
+Supabase 200人同時回答シミュレーション結果
+
+実施日
+2026-08-25
+
+対象
+Supabase無料枠
+Project URL: https://xxftmypgnskthhfaxtcx.supabase.co
+
+実行条件
+回答数: 200
+同時実行数: 200
+参加者画面polling: なし
+回答処理: event_answers への1行insert
+
+結果
+送信成功: 200
+送信失敗: 0
+DB記録件数: 200
+総処理時間: 3888ms
+
+レイテンシ
+min: 494ms
+p50: 765ms
+p90: 1421ms
+p95: 1752ms
+p99: 3407ms
+max: 3834ms
+
+所感
+200人が同時に回答しても全件記録できた。
+Google Apps Script + Googleスプレッドシート方式では200人同時時に失敗が多かったため、本番はSupabase版を使う。
+
+注意
+このテストは回答insertの負荷確認。
+本番リハでは、会場回線、QR読み取り、OBS表示、進行画面操作を含めて再確認する。

@@ -1,0 +1,36 @@
+Supabase無料枠 セットアップ手順
+
+1. Supabaseで新規プロジェクトを作成
+   https://supabase.com/
+
+2. SQL Editorを開く
+
+3. このファイルと同じフォルダにある supabase-schema.sql を丸ごと貼り付けて実行
+
+4. Project Settings > API を開く
+
+5. 次の2つを config.js に貼る
+   - Project URL
+   - anon public key
+
+config.js の例:
+
+window.SUPABASE_URL = "https://xxxxx.supabase.co";
+window.SUPABASE_ANON_KEY = "xxxxx";
+window.EVENT_API_URL = "https://script.google.com/macros/s/xxxxx/exec";
+
+Supabase設定が入っていれば、EVENT_API_URLは残っていてもSupabaseが優先されます。
+
+6. GitHub Pagesへ反映
+
+7. 進行画面を開いて「設定を反映」を1回押す
+   これで answerDeadline が本番用に更新されます。
+
+8. 200人同時テスト
+
+SUPABASE_URL="https://xxxxx.supabase.co" SUPABASE_ANON_KEY="xxxxx" node tools/load-test-supabase.mjs --count=200 --concurrency=200
+
+重要:
+anon public key はブラウザで使う公開キーです。
+ただし、このシステムはアクセスキーを知っている人が操作できる前提なので、URLとアクセスキーの扱いには注意してください。
+本番後はアクセスキー変更を推奨します。
