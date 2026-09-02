@@ -395,6 +395,7 @@ function render() {
 
 function renderSettings() {
   if (document.activeElement?.closest(".setup-panel")) return;
+  const selectedManualTeam = $("manualTeam").value || state.currentTeam;
   $("teamAName").value = state.teamAName;
   $("teamBName").value = state.teamBName;
   $("startNumber").value = state.startNumber;
@@ -406,6 +407,7 @@ function renderSettings() {
     <option value="A">${escapeHtml(state.teamAName)}</option>
     <option value="B">${escapeHtml(state.teamBName)}</option>
   `;
+  $("manualTeam").value = ["A", "B"].includes(selectedManualTeam) ? selectedManualTeam : state.currentTeam;
 }
 
 function renderControl() {
@@ -773,9 +775,10 @@ function startTimer() {
 }
 
 function startRemotePolling() {
-  if (!isRemoteMode() || PARTICIPANT_MODE) return;
+  if (!isRemoteMode()) return;
   if (pollId) clearInterval(pollId);
-  pollId = setInterval(syncFromRemote, 1000);
+  const interval = PARTICIPANT_MODE ? 5000 : 1000;
+  pollId = setInterval(syncFromRemote, interval);
 }
 
 if (!ACCESS_GRANTED) {
