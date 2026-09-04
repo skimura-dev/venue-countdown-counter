@@ -25,7 +25,7 @@ const defaultState = {
   questionId: 1,
   question: "今日関東から来た人",
   answerDuration: 60,
-  answerDeadline: null,
+  answerDeadline: "1970-01-01T00:00:00.000Z",
   winMode: "zero",
   history: [],
   latest: null
@@ -303,13 +303,13 @@ async function supabaseRequest(action, payload = {}) {
     remoteState.turnLabel = `${remoteState.turn}ターン目`;
     remoteState.currentTeam = remoteState.currentTeam === "A" ? "B" : "A";
     remoteState.questionId += 1;
-    remoteState.answerDeadline = deadlineFromNowFor(remoteState.answerDuration);
+    remoteState.answerDeadline = closedDeadline();
     remoteState.history = [];
     await writeSupabaseState(remoteState);
   }
 
   if (action === "closeAnswers") {
-    remoteState.answerDeadline = new Date(Date.now() - 1000).toISOString();
+    remoteState.answerDeadline = closedDeadline();
     remoteState.history = [];
     await writeSupabaseState(remoteState);
   }
@@ -335,7 +335,7 @@ async function supabaseRequest(action, payload = {}) {
     remoteState.turn = 1;
     remoteState.turnLabel = "1ターン目";
     remoteState.questionId += 1;
-    remoteState.answerDeadline = deadlineFromNowFor(remoteState.answerDuration);
+    remoteState.answerDeadline = closedDeadline();
     remoteState.history = [];
     remoteState.latest = null;
     await writeSupabaseState(remoteState);
@@ -603,7 +603,7 @@ async function nextTurn() {
   state.turnLabel = `${state.turn}ターン目`;
   state.currentTeam = state.currentTeam === "A" ? "B" : "A";
   state.questionId += 1;
-  state.answerDeadline = deadlineFromNow();
+  state.answerDeadline = closedDeadline();
   saveLocalState();
   render();
 }
@@ -614,7 +614,7 @@ async function closeAnswers() {
     return;
   }
 
-  state.answerDeadline = new Date(Date.now() - 1000).toISOString();
+  state.answerDeadline = closedDeadline();
   saveLocalState();
   render();
 }
@@ -637,7 +637,7 @@ async function resetGame() {
     turn: 1,
     turnLabel: "1ターン目",
     questionId: state.questionId + 1,
-    answerDeadline: deadlineFromNow(),
+    answerDeadline: closedDeadline(),
     history: [],
     latest: null
   };
@@ -745,8 +745,12 @@ function deadlineFromNowFor(seconds) {
   return new Date(Date.now() + Number(seconds || 60) * 1000).toISOString();
 }
 
+function closedDeadline() {
+  return new Date(Date.now() - 1000).toISOString();
+}
+
 function remainingSeconds() {
-  if (!state.answerDeadline) return state.answerDuration;
+  if (!state.answerDeadline) return 0;
   return Math.max(0, Math.ceil((new Date(state.answerDeadline).getTime() - Date.now()) / 1000));
 }
 
@@ -755,7 +759,7 @@ function isAnswerClosed() {
 }
 
 function isClosedState(targetState) {
-  if (!targetState.answerDeadline) return false;
+  if (!targetState.answerDeadline) return true;
   return new Date(targetState.answerDeadline).getTime() <= Date.now();
 }
 
@@ -840,7 +844,7 @@ if (!ACCESS_GRANTED) {
     document.body.dataset.overlayPart = OVERLAY_PART;
   }
   if (!state.answerDeadline) {
-    state.answerDeadline = deadlineFromNow();
+    state.answerDeadline = closedDeadline();
     saveLocalState();
   }
   startTimer();
