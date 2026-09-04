@@ -413,6 +413,102 @@ textarea {
   padding-top: 16px;
 }
 
+.manual-log {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 16px;
+}
+
+.turn-log-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.turn-log-card header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.turn-log-card header strong {
+  display: block;
+  font-size: 16px;
+}
+
+.turn-log-card header p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.turn-log-card header span {
+  border-radius: 999px;
+  background: #fff;
+  padding: 6px 10px;
+  color: var(--dark);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.turn-log-card ul {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.turn-log-card li {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 12px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.turn-log-card li span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.turn-log-card li strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.turn-log-card li em {
+  color: var(--red);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.turn-log-card li.is-undo em {
+  color: var(--blue);
+}
+
+.empty-log {
+  margin: 0;
+  display: grid;
+  place-items: center;
+  min-height: 96px;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  font-weight: 800;
+}
+
 .qr-wrap {
   display: grid;
   grid-template-columns: 132px minmax(0, 1fr);
@@ -1037,9 +1133,15 @@ textarea {
 
   .form-grid,
   .manual-form,
+  .turn-log-card header,
+  .turn-log-card li,
   .answer-summary,
   .qr-wrap {
     grid-template-columns: 1fr;
+  }
+
+  .turn-log-card header span {
+    white-space: normal;
   }
 
   .button-row {

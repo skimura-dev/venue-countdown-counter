@@ -155,11 +155,20 @@ function stateForStorage(value) {
   return clean;
 }
 
-async function readSupabaseState() {
+async function readSupabaseState(options = {}) {
+  const includeCounts = options.includeCounts ?? !PARTICIPANT_MODE;
+  const includeManualHistory = options.includeManualHistory ?? !PARTICIPANT_MODE;
   const rows = await supabaseFetch("event_state?id=eq.1&select=state");
   const base = publicState(rows?.[0]?.state || defaultState);
-  const counts = await readSupabaseCounts(base.questionId);
-  return { ...base, answerCounts: counts };
+  const [counts, manualHistory] = await Promise.all([
+    includeCounts ? readSupabaseCounts(base.questionId) : Promise.resolve(null),
+    includeManualHistory ? readSupabaseManualHistory() : Promise.resolve(null),
+  ]);
+  return {
+    ...base,
+    ...(counts ? { answerCounts: counts } : {}),
+    ...(manualHistory ? { history: manualHistory } : {}),
+  };
 }
 
 async function readSupabaseCounts(questionId) {
@@ -170,6 +179,27 @@ async function readSupabaseCounts(questionId) {
     acc.total = acc.circle + acc.cross;
     return acc;
   }, { circle: 0, cross: 0, total: 0 });
+}
+
+async function readSupabaseManualHistory() {
+  const rows = await supabaseFetch("event_manual?order=applied_at.desc&limit=120&select=id,applied_at,question_id,question,team,answer,points,note");
+  return rows.map((row) => {
+    const note = row.note || "";
+    const undo = note.startsWith("undo:");
+    return {
+      id: row.id,
+      team: row.team,
+      answer: row.answer,
+      points: Math.max(0, Math.floor(Number(row.points || 0))),
+      questionId: row.question_id,
+      question: row.question,
+      createdAt: row.applied_at,
+      appliedAt: row.applied_at,
+      turnLabel: extractTurnLabelFromNote(note),
+      undo,
+      undoTargetId: undo ? note.replace("undo:", "") : "",
+    };
+  });
 }
 
 async function writeSupabaseState(nextState) {
@@ -199,15 +229,16 @@ async function appendSupabaseManual(item, nextState) {
       points: item.points,
       score_a: nextState.scoreA,
       score_b: nextState.scoreB,
-      note: item.undo ? `undo:${item.undoTargetId || ""}` : "",
+      note: item.undo ? `undo:${item.undoTargetId || ""}` : turnLabelNote(item.turnLabel),
     }),
   });
 }
 
 async function supabaseRequest(action, payload = {}) {
-  let remoteState = await readSupabaseState();
+  let remoteState = await readSupabaseState({ includeCounts: false, includeManualHistory: false });
 
   if (action === "state") {
+    remoteState = await readSupabaseState();
     return { ok: true, state: remoteState };
   }
 
@@ -263,6 +294,7 @@ async function supabaseRequest(action, payload = {}) {
       points: Math.max(0, Math.floor(Number(payload.points || 0))),
       questionId: remoteState.questionId,
       question: remoteState.question,
+      turnLabel: remoteState.turnLabel,
       createdAt: new Date().toISOString(),
       appliedAt: new Date().toISOString(),
     };
@@ -284,6 +316,7 @@ async function supabaseRequest(action, payload = {}) {
         points: Math.max(0, Math.floor(Number(target.points || 0))),
         questionId: target.question_id,
         question: target.question,
+        turnLabel: extractTurnLabelFromNote(target.note || ""),
         createdAt: new Date().toISOString(),
         appliedAt: new Date().toISOString(),
         undo: true,
@@ -341,7 +374,10 @@ async function supabaseRequest(action, payload = {}) {
     await writeSupabaseState(remoteState);
   }
 
-  const next = await readSupabaseState();
+  const next = await readSupabaseState({
+    includeCounts: action !== "answer",
+    includeManualHistory: action !== "answer",
+  });
   return { ok: true, state: next };
 }
 
@@ -388,6 +424,7 @@ function render() {
   renderSettings();
   renderControl();
   renderAnswerSummary();
+  renderManualLog();
   renderStage();
   renderAnswer();
   renderQr();
@@ -434,6 +471,43 @@ function renderAnswerSummary() {
   $("circleCount").textContent = circleCount;
   $("crossCount").textContent = crossCount;
   $("summaryNote").textContent = `${state.question} / 合計 ${currentAnswers.length}件`;
+}
+
+function renderManualLog() {
+  const log = $("manualLog");
+  const groups = manualLogGroups();
+
+  if (groups.length === 0) {
+    log.innerHTML = `<p class="empty-log">まだ手動減点はありません。</p>`;
+    return;
+  }
+
+  log.innerHTML = groups.map((group) => {
+    const rows = group.items.map((item) => {
+      const sign = item.undo ? "+" : "-";
+      const actionText = item.undo ? "取り消し" : "減点";
+      return `
+        <li class="${item.undo ? "is-undo" : ""}">
+          <span>${escapeHtml(formatLogTime(item.appliedAt || item.createdAt))}</span>
+          <strong>${escapeHtml(teamName(item.team))}</strong>
+          <em>${sign}${escapeHtml(item.points)} / ${escapeHtml(actionText)}</em>
+        </li>
+      `;
+    }).join("");
+
+    return `
+      <article class="turn-log-card">
+        <header>
+          <div>
+            <strong>${escapeHtml(group.turnLabel)}</strong>
+            <p>${escapeHtml(group.question)}</p>
+          </div>
+          <span>${escapeHtml(state.teamAName)} -${group.totalA} / ${escapeHtml(state.teamBName)} -${group.totalB}</span>
+        </header>
+        <ul>${rows}</ul>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderStage() {
@@ -653,6 +727,7 @@ async function applyManual() {
     points: Math.max(0, Math.floor(Number($("manualPoints").value || 0))),
     questionId: state.questionId,
     question: state.question,
+    turnLabel: state.turnLabel,
     createdAt: new Date().toISOString()
   };
 
@@ -701,6 +776,7 @@ async function undoLastManual() {
     points: target.points,
     questionId: target.questionId,
     question: target.question,
+    turnLabel: target.turnLabel,
     createdAt: new Date().toISOString(),
     appliedAt: new Date().toISOString(),
     undo: true,
@@ -731,6 +807,77 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#39;"
   })[char]);
+}
+
+function turnLabelNote(turnLabel) {
+  const label = String(turnLabel || "").trim();
+  return label ? `turnLabel:${label}` : "";
+}
+
+function extractTurnLabelFromNote(note) {
+  const prefix = "turnLabel:";
+  if (!String(note || "").startsWith(prefix)) return "";
+  return String(note).slice(prefix.length).trim();
+}
+
+function isManualLogItem(item) {
+  return item
+    && ["A", "B"].includes(item.team)
+    && Number.isFinite(Number(item.points))
+    && !item.clientId
+    && item.answer !== "初期化"
+    && !["○", "×"].includes(item.answer);
+}
+
+function manualLogGroups() {
+  const items = state.history
+    .filter(isManualLogItem)
+    .map((item) => ({
+      ...item,
+      turnLabel: item.turnLabel || fallbackTurnLabel(item),
+      appliedAt: item.appliedAt || item.createdAt || "",
+    }))
+    .sort((a, b) => new Date(b.appliedAt || 0).getTime() - new Date(a.appliedAt || 0).getTime());
+
+  const groups = new Map();
+  for (const item of items) {
+    const key = `${item.questionId}:${item.turnLabel}:${item.question}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        turnLabel: item.turnLabel,
+        question: item.question || "お題未設定",
+        totalA: 0,
+        totalB: 0,
+        latestAt: item.appliedAt,
+        items: [],
+      });
+    }
+    const group = groups.get(key);
+    const signedPoints = item.undo ? -item.points : item.points;
+    if (item.team === "A") group.totalA += signedPoints;
+    if (item.team === "B") group.totalB += signedPoints;
+    group.items.push(item);
+  }
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      totalA: Math.max(0, group.totalA),
+      totalB: Math.max(0, group.totalB),
+    }))
+    .sort((a, b) => new Date(b.latestAt || 0).getTime() - new Date(a.latestAt || 0).getTime())
+    .slice(0, 12);
+}
+
+function fallbackTurnLabel(item) {
+  if (item.questionId === state.questionId) return state.turnLabel;
+  return `${item.questionId}回目`;
+}
+
+function formatLogTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--";
+  return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 }
 
 function hasAnsweredCurrentQuestion() {
