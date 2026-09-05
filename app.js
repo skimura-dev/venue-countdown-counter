@@ -37,6 +37,8 @@ let timerId = null;
 let pollId = null;
 let syncing = false;
 let submittingAnswer = false;
+let settingsDirty = false;
+let lastRemoteActionStartedAt = 0;
 let syncStatus = {
   type: "idle",
   text: "同期状態を確認中"
@@ -388,8 +390,10 @@ async function supabaseRequest(action, payload = {}) {
 async function syncFromRemote() {
   if (!isRemoteMode() || syncing) return;
   syncing = true;
+  const syncStartedAt = Date.now();
   try {
     const response = await apiRequest("state");
+    if (syncStartedAt < lastRemoteActionStartedAt) return;
     state = { ...structuredClone(defaultState), ...response.state };
     setSyncStatus("ok", `同期済み ${formatStatusTime(new Date())}`);
     saveLocalState();
@@ -404,10 +408,14 @@ async function syncFromRemote() {
 }
 
 async function runRemoteAction(action, payload = {}) {
+  lastRemoteActionStartedAt = Date.now();
   setSyncStatus("saving", "保存中");
   renderSyncStatus();
   const response = await apiRequest(action, payload);
   state = { ...structuredClone(defaultState), ...response.state };
+  if (["settings", "nextTurn", "reset"].includes(action)) {
+    settingsDirty = false;
+  }
   setSyncStatus("ok", `保存済み ${formatStatusTime(new Date())}`);
   saveLocalState();
   render();
@@ -442,7 +450,7 @@ function render() {
 }
 
 function renderSettings() {
-  if (document.activeElement?.closest(".setup-panel")) return;
+  if (settingsDirty || document.activeElement?.closest(".setup-panel")) return;
   const selectedManualTeam = $("manualTeam").value || state.currentTeam;
   $("teamAName").value = state.teamAName;
   $("teamBName").value = state.teamBName;
@@ -456,6 +464,10 @@ function renderSettings() {
     <option value="B">${escapeHtml(state.teamBName)}</option>
   `;
   $("manualTeam").value = ["A", "B"].includes(selectedManualTeam) ? selectedManualTeam : state.currentTeam;
+}
+
+function markSettingsDirty() {
+  settingsDirty = true;
 }
 
 function renderControl() {
@@ -989,6 +1001,10 @@ if (!ACCESS_GRANTED) {
     render();
   });
 
+  document.querySelectorAll(".setup-panel input, .setup-panel select").forEach((element) => {
+    element.addEventListener("input", markSettingsDirty);
+    element.addEventListener("change", markSettingsDirty);
+  });
   $("saveSettingsBtn").addEventListener("click", applySettings);
   $("closeAnswersBtn").addEventListener("click", closeAnswers);
   $("nextTurnBtn").addEventListener("click", nextTurn);
