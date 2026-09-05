@@ -37,6 +37,10 @@ let timerId = null;
 let pollId = null;
 let syncing = false;
 let submittingAnswer = false;
+let syncStatus = {
+  type: "idle",
+  text: "同期状態を確認中"
+};
 
 const $ = (id) => document.getElementById(id);
 
@@ -387,18 +391,24 @@ async function syncFromRemote() {
   try {
     const response = await apiRequest("state");
     state = { ...structuredClone(defaultState), ...response.state };
+    setSyncStatus("ok", `同期済み ${formatStatusTime(new Date())}`);
     saveLocalState();
     render();
   } catch (error) {
     console.warn(error);
+    setSyncStatus("error", `同期エラー ${formatStatusTime(new Date())}`);
+    renderSyncStatus();
   } finally {
     syncing = false;
   }
 }
 
 async function runRemoteAction(action, payload = {}) {
+  setSyncStatus("saving", "保存中");
+  renderSyncStatus();
   const response = await apiRequest(action, payload);
   state = { ...structuredClone(defaultState), ...response.state };
+  setSyncStatus("ok", `保存済み ${formatStatusTime(new Date())}`);
   saveLocalState();
   render();
 }
@@ -423,6 +433,7 @@ function showView() {
 function render() {
   renderSettings();
   renderControl();
+  renderSyncStatus();
   renderAnswerSummary();
   renderManualLog();
   renderStage();
@@ -471,6 +482,13 @@ function renderAnswerSummary() {
   $("circleCount").textContent = circleCount;
   $("crossCount").textContent = crossCount;
   $("summaryNote").textContent = `${state.question} / 合計 ${currentAnswers.length}件`;
+}
+
+function renderSyncStatus() {
+  const element = $("syncStatus");
+  if (!element) return;
+  element.textContent = syncStatus.text;
+  element.dataset.status = syncStatus.type;
 }
 
 function renderManualLog() {
@@ -644,7 +662,14 @@ async function applySettings() {
 
   if (isRemoteMode()) {
     localStorage.removeItem(ANSWERED_KEY);
-    await runRemoteAction("settings", payload);
+    try {
+      await runRemoteAction("settings", payload);
+    } catch (error) {
+      console.warn(error);
+      setSyncStatus("error", `保存エラー ${formatStatusTime(new Date())}`);
+      renderSyncStatus();
+      alert("設定の保存に失敗しました。回線状況を確認して、もう一度「設定を反映」を押してください。");
+    }
     return;
   }
 
@@ -664,6 +689,20 @@ async function applySettings() {
 
   saveLocalState();
   render();
+}
+
+function setSyncStatus(type, text) {
+  syncStatus = { type, text };
+}
+
+function formatStatusTime(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "--:--";
+  return date.toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 async function nextTurn() {

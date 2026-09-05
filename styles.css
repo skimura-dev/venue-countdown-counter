@@ -251,6 +251,31 @@ textarea {
   padding: 0 16px 16px;
 }
 
+.sync-status {
+  margin: -8px 16px 16px;
+  border-radius: 6px;
+  background: #f2f4f7;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.sync-status[data-status="ok"] {
+  background: #eaf8f0;
+  color: #177245;
+}
+
+.sync-status[data-status="saving"] {
+  background: #fff8dc;
+  color: #8a6500;
+}
+
+.sync-status[data-status="error"] {
+  background: #fff0f0;
+  color: #d50032;
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button,
